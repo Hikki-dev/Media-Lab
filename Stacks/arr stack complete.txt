@@ -1,0 +1,223 @@
+# Compose file for the *arr stack. Configuration files are stored 
+# in a docker folder mounted in root. Change to bind mounts if needed.
+# All containers are ran with user and group ids of the main user and 
+# share to aviod permissions issues of downloaded files, please refer
+# the read me file for more information.
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    labels:
+      - deunhealth.restart.on.unhealthy= "true"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+    volumes:
+      - /docker/gluetun:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard #Wireguard can also be used
+      - WIREGUARD_PRIVATE_KEY=
+      - SERVER_COUNTRIES=Singapore
+      - HEALTH_VPN_DURATION_INITIAL=120s
+      - DOT=true
+      
+    healthcheck:
+      test: ping -c 1 www.google.com || exit 1
+      interval: 60s
+      timeout: 20s
+      retries: 5
+    restart: unless-stopped 
+
+# This is a new addition since creating the tutorial video on this stack. 
+# See the 'qBittorrent Stalls with VPN Timeout' section for more information.
+  deunhealth:
+    image: qmcgaw/deunhealth
+    container_name: deunhealth
+    network_mode: "none"
+    environment:
+      - LOG_LEVEL=info
+      - HEALTH_SERVER_ADDRESS=127.0.0.1:9999
+      - TZ=Asia/Colombo
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+# Healthcheck was added to work with deunhealth to restart container
+# on unhealthy status. labels allows deunhealth to monitor.
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Colombo
+      - WEBUI_PORT=9166
+      - TORRENTING_PORT=6881
+      - DOCKER_MODS=ghcr.io/vuetorrent/vuetorrent-lsio-mod:latest
+    volumes:
+      - /media/Docker/Portainer/qbittorrent:/config
+      - /media/Downloads:/downloads
+      - /media/Downloads:/media/downloads
+    healthcheck:
+        test: ping -c 1 www.google.com || exit 1
+        interval: 60s
+        retries: 3
+        start_period: 20s
+        timeout: 10s
+    ports:
+      - 9166:9166 #WebUI
+      - 6881:6881 #TorrentPort
+    network_mode: host 
+
+
+        
+  jellyseerr:
+    container_name: jellyseerr
+    image: fallenbagel/jellyseerr:latest
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Colombo
+    volumes:
+      - /media/Docker/Portainer/Jellyseer:/app/config
+    ports:
+      - 5055:5055 # Expose Jellyseerr's port on your local network
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Colombo
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /docker/prowlarr:/config
+    restart: unless-stopped
+    ports:
+     - 9696:9696 #Prowlarr
+
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Colombo
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /docker/sonarr:/config
+      - /mnt/Makko:/mnt/Makko
+      - /mnt/Hikki:/mnt/Hikki
+      - /mnt/PoppySeed:/mnt/PoppySeed
+      - /media/Downloads:/downloads
+      - /media/Downloads:/media/downloads
+    ports:
+      - 8989:8989 #Sonarr
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Colombo
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /docker/radarr:/config
+      - /media/Movies:/media/Movies
+      - /media/Downloads:/downloads
+      - /media/Downloads:/media/downloads
+    ports:
+      - 7878:7878 #Radarr
+
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Colombo
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /docker/bazarr:/config
+      - /data:/data
+      - /mnt/Hikki:/mnt/Hikki
+      - /mnt/Makko:/mnt/Makko
+      - /mnt/PoppySeed:/mnt/PoppySeed
+      - /media/Movies:/media/Movies
+    network_mode: host 
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    container_name: flaresolverr
+    ports:
+      - 8191:8191 #Flaresolverr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Asia/Colombo
+
+
+  pihole:
+    container_name: pihole
+    labels:
+      - deunhealth.restart.on.unhealthy=true
+    image: pihole/pihole:latest
+    ports:
+      # DNS Ports
+      - "53:53/tcp"
+      - "53:53/udp"
+      # Default HTTP Port
+      - "80:80/tcp"
+      # Default HTTPs Port. FTL will generate a self-signed certificate
+      - "443:443/tcp"
+      # Uncomment the below if using Pi-hole as your DHCP Server
+      #- "67:67/udp"
+    environment:
+      # Set the appropriate timezone for your location (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g:
+      TZ: 'Asia/Colombo'
+      # Set a password to access the web interface. Not setting one will result in a random password being assigned
+      FTLCONF_webserver_api_password: ''
+    # Volumes store your data between container upgrades
+    volumes:
+      # For persisting Pi-hole's databases and common configuration file
+      - './etc-pihole:/etc/pihole'
+      # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most starting fresh with Pi-hole v6. If you're upgrading from v5 you and have used this directory before, you should keep it enabled for the first v6 container start to allow for a complete migration. It can be removed afterwards. Needs environment variable FTLCONF_misc_etc_dnsmasq_d: 'true'
+      #- './etc-dnsmasq.d:/etc/dnsmasq.d'
+    cap_add:
+      # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+      # Required if you are using Pi-hole as your DHCP server, else not needed
+      - NET_ADMIN
+      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+      - SYS_TIME
+      # Optional, if Pi-hole should get some more processing time
+      - SYS_NICE
+    restart: unless-stopped
+    network_mode: "host" 
+
