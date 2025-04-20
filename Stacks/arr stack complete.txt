@@ -20,15 +20,10 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=nordvpn
       - VPN_TYPE=wireguard #Wireguard can also be used
-      - WIREGUARD_PRIVATE_KEY=EMsZDBi3ta3U1O9xima2xXt3vnpwZ+H7pGx38/ShlE0=
+      - WIREGUARD_PRIVATE_KEY=
       - SERVER_COUNTRIES=Singapore
       - HEALTH_VPN_DURATION_INITIAL=120s
       - DOT=true
-
-      # NordVPN Settings
-      #OPENVPN_USER=ouMuGEYK13fhrk1QSwBR9zio
-      #OPENVPN_PASSWORD=hDambe3orvKV1TPc1vCjrvXh
-      #WIREGUARD_PRIVATE_KEY=EMsZDBi3ta3U1O9xima2xXt3vnpwZ+H7pGx38/ShlE0=
       
     healthcheck:
       test: ping -c 1 www.google.com || exit 1
